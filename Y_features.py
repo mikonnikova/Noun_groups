@@ -1,6 +1,6 @@
 def make_group(roots, noun):
     group = [noun]  # members of a group found so far
-    candidates = [noun] # members of a group for which we search for dependent words
+    candidates = [noun]  # members of a group for which we search for dependent words
 
     while len(candidates) > 0:
         new_candidates = []
@@ -9,15 +9,14 @@ def make_group(roots, noun):
                 if pair[1] == candidate:
                     group.append(pair[0])
                     new_candidates.append(pair[0])
-        candidates = new_candidates # search for dependent words for new members of a group
+        candidates = new_candidates  # search for dependent words for new members of a group
 
     group.sort(key=lambda string: int(string))
     return group
-	
-	
+
+
 def find_noun_groups_for_trainset(input_file):
     with open(input_file, "r", encoding='utf-8') as f:
-        #count = 0
         sentence_length = 0
         groups = []
         nouns = []
@@ -25,10 +24,7 @@ def find_noun_groups_for_trainset(input_file):
         total = []
 
         for line in f:
-            #if count > 1000:
-            #   break
             if len(line) <= 1:  # empty line: save groups for a previous sentence or skip
-                #count += 1
                 if len(roots) > 0:
                     for noun in nouns:
                         groups.append(make_group(roots, noun))
@@ -51,7 +47,7 @@ def find_noun_groups_for_trainset(input_file):
             if line[3] == 'NOUN' or line[3] == 'PROPN':
                 nouns.append(line[0])   # append a noun to a list of nouns in a sentence
 
-        if len(roots) > 0: # save groups for a last sentence (if not saved already) or skip
+        if len(roots) > 0:  # save groups for a last sentence (if not saved already) or skip
             for noun in nouns:
                 groups.append(make_group(roots, noun))
             for gr in groups:
@@ -62,13 +58,14 @@ def find_noun_groups_for_trainset(input_file):
                 total = np.append(total, local)
 
     return np.array(total)
-	
-	
-# names of files
-corpus = 'UD_Russian-SynTagRus-master/ru_syntagrus-ud-train.conllu'
-output_name = 'Y_train.pkl'
 
-Y = find_noun_groups_for_trainset(corpus)
-print(Y.shape)
-with open(output_name, 'wb') as f:
-    pickle.dump(Y, f)
+
+def get_y_features(corpus, output_name):
+    y = find_noun_groups_for_trainset(corpus)
+    print(y.shape)
+    with open(output_name, 'wb') as out_f:
+        pickle.dump(y, out_f)
+
+
+get_y_features('UD_Russian-SynTagRus-master/ru_syntagrus-ud-train.conllu', 'Y_train.pkl')
+get_y_features('UD_Russian-SynTagRus-master/ru_syntagrus-ud-test.conllu', 'Y_test.pkl')
