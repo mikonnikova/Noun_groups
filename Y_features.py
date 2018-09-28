@@ -1,3 +1,7 @@
+import numpy as np
+import pickle
+
+
 def make_group(roots, noun):
     group = [noun]  # members of a group found so far
     candidates = [noun]  # members of a group for which we search for dependent words
