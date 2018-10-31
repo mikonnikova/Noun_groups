@@ -38,6 +38,6 @@ while True:
     else:
         break
     file_number += 1
+print(total)
 	
-with open('nn_model.pkl', 'wb') as f:
-    pickle.dump(model, f)
+model.save("nn.h5")

@@ -1,13 +1,11 @@
 import numpy as np
-from keras.models import Sequential
+from keras.models import load_model
 import os
 import pickle
 import gensim
 
 
-clf = Sequential()
-with open('nn_model.pkl', 'rb') as fm:
-    clf = pickle.load(fm)
+clf = load_model("nn.h5")
 	
 m = 'ruscorpora_upos_skipgram_300_5_2018.vec'  # file with used word embedding model
 model = gensim.models.KeyedVectors.load_word2vec_format(m, binary=False)  # load word embedding model
