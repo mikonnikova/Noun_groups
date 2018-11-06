@@ -37,6 +37,8 @@ for f in feats_list:
     feats_len += (len(feats_variants[f]) + 1)
 all_len = word_emb_len + pos_len + feats_len + 3  # total length of a features vector for a single word
 
+# reads input CoNLL-U file
+# ouputs text and selected word features to the output file
 def transform_corpus(input_file, output_file):
     with open(input_file, 'r', encoding='utf-8') as in_f, open(output_file, 'w', encoding='utf-8') as out_f:
         text = ''
@@ -54,7 +56,9 @@ def transform_corpus(input_file, output_file):
                 continue
             text = text + parsed_line[0] + ' ' + parsed_line[1] + ' ' + parsed_line[2] + ' ' + parsed_line[3] + ' ' \
                    + parsed_line[5] + ' '  # add word information
-				   
+	
+
+# organize given corpus info into separate lists	
 def get_info_from_corpus(corpus_info):
     words = []
     pos = []
@@ -74,6 +78,8 @@ def get_info_from_corpus(corpus_info):
 
     return words, pos, feats, entities
 	
+	
+# transform given word inforamtion into a vector representation
 def get_word_features(num, words, pos, feats, entities, root_num):
     word_pos = words[num] + '_' + pos[num]
     # get word embedding from a model
@@ -107,6 +113,9 @@ def get_word_features(num, words, pos, feats, entities, root_num):
 
     return np.concatenate(([1], word_vector, pos_vector, feats_vector, entities[num], offset, direction), axis=None)
 	
+	
+# get a global features vector for a word
+# comprising info about word in a 2-word window and a root word
 def get_features(num, words, pos, feats, entities, root_num):
     if num >= 2:
         pre_pre_word = get_word_features(num - 2, words, pos, feats, entities, root_num)
@@ -128,7 +137,7 @@ def get_features(num, words, pos, feats, entities, root_num):
     root = get_word_features(root_num, words, pos, feats, entities, -1)
 
     return np.concatenate((pre_pre_word, pre_word, word, post_word, post_post_word, root), axis=None)
-	
+
 def process_sentence(sentence, corpus_present=False, corpus_info=''):
     if corpus_present:  # get info from corpus if provided
         words, pos, feats, entities = get_info_from_corpus(corpus_info)
@@ -136,7 +145,7 @@ def process_sentence(sentence, corpus_present=False, corpus_info=''):
         words, entities = get_words(sentence)  # TODO
         pos, feats = get_pos(sentence)  # TODO
         
-    sentence_groups = []
+    sentence_groups = {}
     for word_num in range(len(words)):
         if pos[word_num] == 'NOUN' or pos[word_num] == 'PROPN':
             group = [str(word_num+1)]  # include the noun itself
@@ -158,12 +167,137 @@ def process_sentence(sentence, corpus_present=False, corpus_info=''):
                    break
 
             group.sort(key=lambda string: int(string))
-            sentence_groups.append(group)
+            sentence_groups[str(word_num+1)] = group
             
     return sentence_groups
 	
 def word_in_group(word_features):
     return clf.predict(word_features.reshape(1, -1), batch_size=1)
+
+# find a group for a given noun
+# takes in:
+#    position of a noun
+#    list of pairs (word, its root) for all words in a sentence
+# returns:
+#    a noun group as a sorted by numbers list of positions of its members
+
+def make_group(roots, noun):
+    group = [noun]  # members of a group found so far
+    candidates = [noun] # members of a group for which we search for dependent words
+
+    while len(candidates) > 0:
+        new_candidates = []
+        for candidate in candidates:
+            for pair in roots:
+                if pair[1] == candidate:
+                    group.append(pair[0])
+                    new_candidates.append(pair[0])
+        candidates = new_candidates # search for dependent words for new members of a group
+
+    group.sort(key=lambda string: int(string))
+    return group
+
+
+# find noun groups in all of the sentences of a given file in "CoNLL-U" format
+# save those groups in a pickle file
+# one pickle entry contains a dictionary of noun(word number):group(list of word numbers) for all nouns in a sentence
+
+def find_noun_groups(input_file, output_file):
+    with open(input_file, "r", encoding='utf-8') as f, open(output_file, "wb") as outf:
+        groups = {}
+        nouns = []
+        roots = []
+
+        for line in f:
+            if len(line) <= 1:  # empty line: save groups for a previous sentence or skip
+                if len(roots) > 0:
+                    for noun in nouns:
+                        groups[noun] = make_group(roots, noun)
+                    pickle.dump(groups, outf)
+                groups = {}
+                nouns = []
+                roots = []
+                continue
+            line = line.split()
+            if line[0] == '#':  # comment line: do nothing
+                continue
+            roots.append((line[0], line[6]))    # append a pair of (word, its root) to a list
+            if line[3] == 'NOUN' or line[3] == 'PROPN':
+                nouns.append(line[0])   # append a noun to a list of nouns in a sentence
+
+        if len(roots) > 0: # save groups for a last sentence (if not saved already) or skip
+            for noun in nouns:
+                groups[noun] = make_group(roots, noun)
+            pickle.dump(groups, outf)
+
+    return
+
+# compare group found for the certain noun with a correct answer
+# return True if similar, False otherwise
+
+def compare_group(a, b):
+    if len(a) != len(b):
+        return False
+    for i in range(len(a)):
+        if a[i] != b[i]:
+            return False
+    return True
+
+
+# compare given dictionary of groups to a correct one
+# return true_positive count, retrieved instances count, relevant instances count for IR defined metrics
+
+def compare(groups, answers):
+    correct = 0
+    
+    for k,v in answers.items():
+        if k in groups:
+            if compare_group(groups[k], v):
+                correct += 1
+                
+    return correct, len(groups), len(answers)  
+
+# measure quality of given answers compared to correct ones
+# return precision, recall and f1 metrics (IR defined)
+
+def metrics(given_answers_file, answers_file):
+    all_true_positive, all_found, all_positive = 0, 0, 0
+    count = 0
+
+    with open(given_answers_file, 'rb') as f, open(answers_file, 'rb') as af:
+        while True:  # read given_answers_file and answers_file line by line
+            try:
+                line = pickle.load(f)
+            except EOFError:    # end of given_answers_file
+                try:
+                    _ = pickle.load(af)
+                except EOFError:
+                    break
+                print('Answers file too long; ' + str(count) + ' lines read\n')
+                break
+            try:
+                answer = pickle.load(af)
+            except EOFError:    # end of answers_file
+                print('Answers file too short; ' + str(count) + ' lines read\n')
+                break
+
+            true_positive, found, positive = compare(line, answer)
+            all_true_positive += true_positive
+            all_found += found
+            all_positive += positive
+            count += 1
+
+    if count == 0:
+        print('No lines in file!\n')
+        return 0, 0, 0
+
+    precision = all_true_positive / all_positive if all_positive > 0 else \
+        0 if all_true_positive - all_positive > 0 else 1
+    recall = all_true_positive / all_found if all_found > 0 else \
+        0 if all_true_positive - all_found > 0 else 1
+    f1 = 2*precision*recall / (precision+recall) if precision+recall > 0 else 0
+    return precision, recall, f1
+
 	
 transform_corpus('UD_Russian-SynTagRus-master/ru_syntagrus-ud-test.conllu', 'temp.txt')
 with open('temp.txt', 'r', encoding='utf-8') as temp_f, open('Answers/test_given.txt', 'wb') as res_file:
@@ -186,121 +320,11 @@ with open('temp.txt', 'r', encoding='utf-8') as temp_f, open('Answers/test_given
     if len(info)>0:
         res = process_sentence('', True, info)
         pickle.dump(res, res_file)
-		
-def find_similar(group, answers):
-    for answer in answers:
-        if answer[0] == group[0] and len(answer) == len(group):
-            res = True
-            for i in range(len(answer)):
-                if answer[i] != group[i]:
-                    res = False
-                    break
-            if res:
-                return True
 
-    return False
-	
-def count_metrics(groups, answers):
-    groups_count = len(groups)
-    answers_count = len(answers)
-    similar_count = 0
-
-    for group in groups:
-        if find_similar(group, answers):
-            similar_count += 1
-
-    precision = similar_count / groups_count if groups_count > 0 else 0
-    recall = similar_count / answers_count if answers_count > 0 else 0
-    f1 = 2 * precision * recall / (precision + recall) if precision + recall > 0 else 0
-    return precision, recall, f1
-	
-def metrics(given_answers_file, answers_file):
-    overall_precision = 0
-    overall_recall = 0
-    overall_f1 = 0
-    count = 0
-
-    with open(given_answers_file, 'rb') as f, open(answers_file, 'rb') as af:
-        while True:  # read given_answers_file and answers_file line by line
-            try:
-                line = pickle.load(f)
-            except EOFError:    # end of given_answers_file
-                try:
-                    _ = pickle.load(af)
-                except EOFError:
-                    break
-                print('Answers file too long; ' + str(count) + ' lines read\n')
-                break
-            try:
-                answer = pickle.load(af)
-            except EOFError:    # end of answers_file
-                print('Answers file too short; ' + str(count) + ' lines read\n')
-                break
-
-            precision, recall, f1 = count_metrics(line, answer)
-            overall_precision += precision
-            overall_recall += recall
-            overall_f1 += f1
-            count += 1
-
-    if count == 0:
-        print('No lines in file!\n')
-        return 0, 0, 0
-
-    precision = overall_precision / count
-    recall = overall_recall / count
-    f1 = overall_f1 / count
-    return precision, recall, f1
-	
-def make_group(roots, noun):
-    group = [noun]  # members of a group found so far
-    candidates = [noun] # members of a group for which we search for dependent words
-
-    while len(candidates) > 0:
-        new_candidates = []
-        for candidate in candidates:
-            for pair in roots:
-                if pair[1] == candidate:
-                    group.append(pair[0])
-                    new_candidates.append(pair[0])
-        candidates = new_candidates # search for dependent words for new members of a group
-
-    group.sort(key=lambda string: int(string))
-    return group
-	
-def find_noun_groups(input_file, output_file):
-    with open(input_file, "r", encoding='utf-8') as f, open(output_file, "wb") as outf:
-        groups = []
-        nouns = []
-        roots = []
-
-        for line in f:
-            if len(line) <= 1:  # empty line: save groups for a previous sentence or skip
-                if len(roots) > 0:
-                    for noun in nouns:
-                        groups.append(make_group(roots, noun))
-                    pickle.dump(groups, outf)
-                groups = []
-                nouns = []
-                roots = []
-                continue
-            line = line.split()
-            if line[0] == '#':  # comment line: do nothing
-                continue
-            roots.append((line[0], line[6]))    # append a pair of (word, its root) to a list
-            if line[3] == 'NOUN' or line[3] == 'PROPN':
-                nouns.append(line[0])   # append a noun to a list of nouns in a sentence
-
-        if len(roots) > 0: # save groups for a last sentence (if not saved already) or skip
-            for noun in nouns:
-                groups.append(make_group(roots, noun))
-            pickle.dump(groups, outf)
-
-    return
 	
 input_file = './UD_Russian-SynTagRus-master/ru_syntagrus-ud-test.conllu'
 output_file = './Answers/test.txt'
-#find_noun_groups(input_file, output_file)
+find_noun_groups(input_file, output_file)
 
 answers_file = './Answers/test.txt'
 given_answers_file = './Answers/test_given.txt'

@@ -1,48 +1,36 @@
 import pickle
 
 
-# find a group similar to a given one in a correct groups list
-# return True if found, False otherwise
+# compare group found for the certain noun with a correct answer
+# return True if similar, False otherwise
 
-def find_similar(group, answers):
-    for answer in answers:
-        if answer[0] == group[0] and len(answer) == len(group):
-            res = True
-            for i in range(len(answer)):
-                if answer[i] != group[i]:
-                    res = False
-                    break
-            if res:
-                return True
-
-    return False
+def compare_group(a, b):
+    if len(a) != len(b):
+        return False
+    for i in range(len(a)):
+        if a[i] != b[i]:
+            return False
+    return True
 
 
-# compare given list of groups to a correct one
-# return precision, recall and f1 metrics (IR defined)
+# compare given dictionary of groups to a correct one
+# return true_positive count, retrieved instances count, relevant instances count for IR defined metrics
 
-def count_metrics(groups, answers):
-    groups_count = len(groups)
-    answers_count = len(answers)
-    similar_count = 0
-
-    for group in groups:
-        if find_similar(group, answers):
-            similar_count += 1
-
-    precision = similar_count / groups_count if groups_count > 0 else 0
-    recall = similar_count / answers_count if answers_count > 0 else 0
-    f1 = 2 * precision * recall / (precision + recall) if precision + recall > 0 else 0
-    return precision, recall, f1
-
+def compare(groups, answers):
+    correct = 0
+    
+    for k,v in answers.items():
+        if k in groups:
+            if compare_group(groups[k], v):
+                correct += 1
+                
+    return correct, len(groups), len(answers)  
 
 # measure quality of given answers compared to correct ones
-# return overall precision, recall and f1 metrics (IR defined)
+# return precision, recall and f1 metrics (IR defined)
 
 def metrics(given_answers_file, answers_file):
-    overall_precision = 0
-    overall_recall = 0
-    overall_f1 = 0
+    all_true_positive, all_found, all_positive = 0, 0, 0
     count = 0
 
     with open(given_answers_file, 'rb') as f, open(answers_file, 'rb') as af:
@@ -62,19 +50,21 @@ def metrics(given_answers_file, answers_file):
                 print('Answers file too short; ' + str(count) + ' lines read\n')
                 break
 
-            precision, recall, f1 = count_metrics(line, answer)
-            overall_precision += precision
-            overall_recall += recall
-            overall_f1 += f1
+            true_positive, found, positive = compare(line, answer)
+            all_true_positive += true_positive
+            all_found += found
+            all_positive += positive
             count += 1
 
     if count == 0:
         print('No lines in file!\n')
         return 0, 0, 0
 
-    precision = overall_precision / count
-    recall = overall_recall / count
-    f1 = overall_f1 / count
+    precision = all_true_positive / all_positive if all_positive > 0 else \
+        0 if all_true_positive - all_positive > 0 else 1
+    recall = all_true_positive / all_found if all_found > 0 else \
+        0 if all_true_positive - all_found > 0 else 1
+    f1 = 2*precision*recall / (precision+recall) if precision+recall > 0 else 0
     return precision, recall, f1
 
 

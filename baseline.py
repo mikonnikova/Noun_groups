@@ -86,31 +86,40 @@ def parse_text(model_file, input_file, output_file):
 def postprocess(input_file, output_file):
     with open(input_file, 'r') as f, open(output_file, 'w') as of:
         offset = 0
+        new_offset = 0
         parted = False
 
         for line in f:
             if len(line) <= 1:  # empty line
-                print(file=of)
                 continue
             temp_line = line.split()
             if temp_line[0] == '#':
                 if temp_line[1] == 'sent_id' and temp_line[3] == '1':   # first part of a sentence
+                    print(file=of)
                     print(line[:-1], file=of)
+                    offset = 0
+                    new_offset = 0
                     parted = False
                 elif temp_line[1] == 'sent_id' and temp_line[3] != '1':  # part of a sentence divided
                     parted = True
+                    if temp_line[3] != '2':
+                        offset = new_offset
                 continue
             if not parted:
                 print(line[:-1], file=of)
                 offset = int(line.split(maxsplit=1)[0])
             else:
-                new_line = line.split(maxsplit=1)
-                li = new_line[1]
-                print(str(int(new_line[0]) + offset) + ' ' + li[:-1], file=of)   # add offset to a number of a word
+                new_line = line.split(maxsplit=7)
+                li = new_line[7]				
+                print(str(int(new_line[0]) + offset) + ' ' + new_line[1] + ' ' + new_line[2] + ' ' + new_line[3] \
+                    + ' ' + new_line[4] + ' ' + new_line[5] + ' ' + str(int(new_line[6]) + offset) + ' ' + \
+					li[:-1], file=of)   # add offset to a number of a word and root
+                new_offset = offset + int(new_line[0])
+				
 
 
 # usage example
-# model_file = './russian-syntagrus-ud-2.0-170801.udpipe'
+# model_file = './udpipe-ud-2.0-170801/russian-syntagrus-ud-2.0-170801.udpipe'
 # input_file = './ru_syntagrus-ud-test.conllu'
 # temp_file = './temp.txt'
 # output_file = './given_answer.txt'

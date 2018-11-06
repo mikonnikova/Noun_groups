@@ -27,10 +27,11 @@ def make_group(roots, noun):
 
 # find noun groups in all of the sentences of a given file in "CoNLL-U" format
 # save those groups in a pickle file
+# one pickle entry contains a dictionary of noun(word number):group(list of word numbers) for all nouns in a sentence
 
 def find_noun_groups(input_file, output_file):
     with open(input_file, "r", encoding='utf-8') as f, open(output_file, "wb") as outf:
-        groups = []
+        groups = {}
         nouns = []
         roots = []
 
@@ -38,9 +39,9 @@ def find_noun_groups(input_file, output_file):
             if len(line) <= 1:  # empty line: save groups for a previous sentence or skip
                 if len(roots) > 0:
                     for noun in nouns:
-                        groups.append(make_group(roots, noun))
+                        groups[noun] = make_group(roots, noun)
                     pickle.dump(groups, outf)
-                groups = []
+                groups = {}
                 nouns = []
                 roots = []
                 continue
@@ -53,7 +54,7 @@ def find_noun_groups(input_file, output_file):
 
         if len(roots) > 0: # save groups for a last sentence (if not saved already) or skip
             for noun in nouns:
-                groups.append(make_group(roots, noun))
+                groups[noun] = make_group(roots, noun)
             pickle.dump(groups, outf)
 
     return
