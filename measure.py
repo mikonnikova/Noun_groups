@@ -172,7 +172,10 @@ def process_sentence(sentence, corpus_present=False, corpus_info=''):
     return sentence_groups
 	
 def word_in_group(word_features):
-    return clf.predict(word_features.reshape(1, -1), batch_size=1)
+    if clf.predict(word_features.reshape(1, -1), batch_size=1) > 0.5:
+        return True
+    else:
+        return False
 
 # find a group for a given noun
 # takes in:
