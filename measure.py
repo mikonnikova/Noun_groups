@@ -331,4 +331,4 @@ find_noun_groups(input_file, output_file)
 
 answers_file = './Answers/test.txt'
 given_answers_file = './Answers/test_given.txt'
-print(metrics(given_answers_file, answers_file))
+metrics(given_answers_file, answers_file)
