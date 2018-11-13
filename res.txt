@@ -1,32 +1,26 @@
 NN
-Macro precision: 0.5068649541835661
-Macro recall: 0.5068649541835661
-Macro f1: 0.5068649541835661
-Micro precision: 0.556768676641973
-Micro recall: 0.556768676641973
-Micro f1: 0.556768676641973
+Macro precision = recall = f1: 0.5068649541835661
+Micro precision = recall = f1: 0.556768676641973
 
 SGD
-Macro precision: 0.29121225777377197
-Macro recall: 0.29121225777377197
-Macro f1: 0.29121225777377197
-Micro precision: 0.3557058385000949
-Micro recall: 0.3557058385000949
-Micro f1: 0.3557058385000949
+Macro precision = recall = f1: 0.29121225777377197
+Micro precision = recall = f1: 0.3557058385000949
 
 SVM
-Macro precision: 0.2637824846026739
-Macro recall: 0.2637824846026739
-Macro f1: 0.2637824846026739
-Micro precision: 0.3272302289081684
-Micro recall: 0.3272302289081684
-Micro f1: 0.3272302289081684
+Macro precision = recall = f1: 0.2637824846026739
+Micro precision  = recall = f1: 0.3272302289081684
 
-baseline
+baseline (with golden tags)
+Macro precision = recall = f1: 0.5671022983325823
+Micro precision = recall = f1: 0.612178083887229
+
+baseline (their tagger)
 Macro precision: 0.43185165148919546
 Macro recall: 0.4316959591407541
 Macro f1: 0.43177379127978605
 Micro precision: 0.476915708268028
 Micro recall: 0.4776074453191342
 Micro f1: 0.47660468375875464
+
+
 
