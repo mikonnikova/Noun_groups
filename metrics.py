@@ -31,7 +31,6 @@ def compare(groups, answers):
 # return precision, recall and f1 metrics (IR defined) for one sentence
 
 def local_metrics(true_positive, found, positive):	
-    precision, recall, f1 = 0, 0, 0
 
     if positive == 0:
         if found == 0:

@@ -4,7 +4,7 @@ import pickle
 # find a group for a given noun
 # takes in:
 #    position of a noun
-#    list of pairs (word, its root) for all words in a sentence
+#    list of trios (word, its root, POS tag) for all words in a sentence
 # returns:
 #    a noun group as a sorted by numbers list of positions of its members
 
@@ -17,7 +17,8 @@ def make_group(roots, noun):
         for candidate in candidates:
             for pair in roots:
                 if pair[1] == candidate:
-                    group.append(pair[0])
+                    if pair[2] != 'PUNCT':
+                        group.append(pair[0])
                     new_candidates.append(pair[0])
         candidates = new_candidates # search for dependent words for new members of a group
 
@@ -25,11 +26,38 @@ def make_group(roots, noun):
     return group
 
 
-# find noun groups in all of the sentences of a given file in "CoNLL-U" format
-# save those groups in a pickle file
-# one pickle entry contains a dictionary of noun(word number):group(list of word numbers) for all nouns in a sentence
+# find a shallow group for a given noun
+# takes in:
+#    position of a noun
+#    list of trios (word, its root, POS tag) for all words in a sentence
+# returns:
+#    a shallow noun group (without inner ones) as a sorted by numbers list of positions of its members
 
-def find_noun_groups(input_file, output_file):
+def make_short_group(roots, noun):
+    group = []  # members of a group found so far
+    candidates = [noun] # members of a group for which we search for dependent words
+
+    while len(candidates) > 0:
+        new_candidates = []
+        for candidate in candidates:
+            for pair in roots:
+                if pair[1] == candidate:
+                    if pair[2] != 'PUNCT':  # punctuation is omitted
+                        group.append(pair[0])
+                    if pair[0] != 'NOUN' and pair[0] != 'PROPN':  # don't include embedded groups
+                        new_candidates.append(pair[0])
+        candidates = new_candidates # search for dependent words for new members of a group
+
+    group.sort(key=lambda string: int(string))
+    return group
+
+
+
+# find noun groups in all of the sentences of a given file in "CoNLL-U" format
+# save those groups in a pickle file sentence by sentence
+# sentence format: dict of <noun, its group>
+
+def find_noun_groups(input_file, output_file, short_version=False):
     with open(input_file, "r", encoding='utf-8') as f, open(output_file, "wb") as outf:
         groups = {}
         nouns = []
@@ -39,7 +67,10 @@ def find_noun_groups(input_file, output_file):
             if len(line) <= 1:  # empty line: save groups for a previous sentence or skip
                 if len(roots) > 0:
                     for noun in nouns:
-                        groups[noun] = make_group(roots, noun)
+                        if short_version:  # shallow or full noun groups
+                            groups[noun] = make_short_group(roots, noun)
+                        else:
+                            groups[noun] = make_group(roots, noun)
                     pickle.dump(groups, outf)
                 groups = {}
                 nouns = []
@@ -48,13 +79,16 @@ def find_noun_groups(input_file, output_file):
             line = line.split()
             if line[0] == '#':  # comment line: do nothing
                 continue
-            roots.append((line[0], line[6]))    # append a pair of (word, its root) to a list
+            roots.append((line[0], line[6], line[3]))    # append a trio of (word, its root, POS tag) to a list
             if line[3] == 'NOUN' or line[3] == 'PROPN':
                 nouns.append(line[0])   # append a noun to a list of nouns in a sentence
 
         if len(roots) > 0: # save groups for a last sentence (if not saved already) or skip
             for noun in nouns:
-                groups[noun] = make_group(roots, noun)
+                if short_version:  # shallow or full noun groups
+                    groups[noun] = make_short_group(roots, noun)
+                else:
+                    groups[noun] = make_group(roots, noun)
             pickle.dump(groups, outf)
 
     return
