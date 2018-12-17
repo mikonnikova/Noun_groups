@@ -46,6 +46,38 @@ def modify_corpus(input_file, group_file, output_file):
                 text += '0'            
             text = text + ' ' + parsed_line[7] + ' ' + parsed_line[8]
             print(text, file=out_f)
+
+
+# modify corpus for single-root and deprel labels conditions
+
+def modify_corpus_udpipe(input_file, group_file, output_file):
+    with open(input_file, 'r', encoding='utf-8') as in_f, open(group_file, 'rb') as pf, open(output_file, 'w', encoding='utf-8') as out_f:
+        text = ''
+        for line in in_f:
+            if len(line) <= 1:  # empty line
+                print(file=out_f)
+                continue
+            parsed_line = line.split()
+            if parsed_line[0] == '#':  # text or info
+                print(line[:-1], file=out_f)
+                if parsed_line[1] == 'text':
+                    roots = pickle.load(pf)
+                    print('0.1\t_\t_\t_\t_\t_\t_\t_\t0:exroot\t_', file=out_f)  # add dummy root
+                continue
+            parsed_line = line.split('\t')
+            text = parsed_line[0] + '\t' + parsed_line[1] + '\t' + parsed_line[2] + '\t' + parsed_line[3] + '\t' \
+                   + parsed_line[4] + '\t' + parsed_line[5] + '\t'  #first 6 columns unchanged
+            mod = parsed_line[8].split(':')[1]	# deprel label
+            if parsed_line[0].find('.') > -1:	# dummy node
+                if parsed_line[0][0] == '0':
+                    continue
+                text = text + '_\t_\t' + parsed_line[8]
+            elif parsed_line[0] in roots.keys():
+                text = text + roots[parsed_line[0]] + '\t' + parsed_line[7] + '\t' + roots[parsed_line[0]] + ':' + mod
+            else:
+                text = text + '0' + '\t' + parsed_line[7] + '\t' + '0.1:' + mod  # change deprel                
+            text = text + '\t' + parsed_line[9]
+            print(text[:-1], file=out_f)
 			
 
 # usage example			
