@@ -1,4 +1,5 @@
 import pickle
+import sys
 
 
 # find a group for a given noun
@@ -42,8 +43,7 @@ def make_short_group(roots, noun):
         for candidate in candidates:
             for pair in roots:
                 if pair[1] == candidate:
-                    if pair[2] != 'PUNCT':  # punctuation is omitted
-                        group.append(pair[0])
+                    group.append(pair[0])
                     if pair[0] != 'NOUN' and pair[0] != 'PROPN':  # don't include embedded groups
                         new_candidates.append(pair[0])
         candidates = new_candidates # search for dependent words for new members of a group
@@ -94,7 +94,7 @@ def find_noun_groups(input_file, output_file, short_version=False):
     return
 
 
-# usage example
-# input_file = './UD_Russian-SynTagRus-master/ru_syntagrus-ud-test.conllu'
-# output_file = './Answers/test.txt'
-# find_noun_groups(input_file, output_file)
+if __name__ == '__main__':
+    input_file = sys.argv[1]
+    output_file = sys.argv[2]
+    find_noun_groups(input_file, output_file)

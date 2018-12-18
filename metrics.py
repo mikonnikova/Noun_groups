@@ -110,7 +110,7 @@ def metrics(given_answers_file, answers_file):
     return
 
 
-# usage example
-# answers_file = './Answers/test.txt'
-# given_answers_file = './Answers/given.txt'
-# metrics(given_answers_file, answers_file)
+if __name__ == '__main__':
+    answers_file = sys.argv[1]
+    given_answers_file = sys.argv[2]
+    metrics(given_answers_file, answers_file)
