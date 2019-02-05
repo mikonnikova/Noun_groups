@@ -11,7 +11,7 @@ import sys
 
 def make_group(roots, noun):
     group = [noun]  # members of a group found so far
-    candidates = [noun] # members of a group for which we search for dependent words
+    candidates = [noun]  # members of a group for which we search for dependent words
 
     while len(candidates) > 0:
         new_candidates = []
@@ -21,7 +21,7 @@ def make_group(roots, noun):
                     if pair[2] != 'PUNCT':
                         group.append(pair[0])
                     new_candidates.append(pair[0])
-        candidates = new_candidates # search for dependent words for new members of a group
+        candidates = new_candidates  # search for dependent words for new members of a group
 
     group.sort(key=lambda string: int(string))
     return group
@@ -36,7 +36,7 @@ def make_group(roots, noun):
 
 def make_short_group(roots, noun):
     group = []  # members of a group found so far
-    candidates = [noun] # members of a group for which we search for dependent words
+    candidates = [noun]  # members of a group for which we search for dependent words
 
     while len(candidates) > 0:
         new_candidates = []
@@ -44,13 +44,12 @@ def make_short_group(roots, noun):
             for pair in roots:
                 if pair[1] == candidate:
                     group.append(pair[0])
-                    if pair[0] != 'NOUN' and pair[0] != 'PROPN':  # don't include embedded groups
+                    if pair[2] != 'NOUN' and pair[2] != 'PROPN':  # don't include embedded groups
                         new_candidates.append(pair[0])
-        candidates = new_candidates # search for dependent words for new members of a group
+        candidates = new_candidates  # search for dependent words for new members of a group
 
     group.sort(key=lambda string: int(string))
     return group
-
 
 
 # find noun groups in all of the sentences of a given file in "CoNLL-U" format
@@ -83,7 +82,7 @@ def find_noun_groups(input_file, output_file, short_version=False):
             if line[3] == 'NOUN' or line[3] == 'PROPN':
                 nouns.append(line[0])   # append a noun to a list of nouns in a sentence
 
-        if len(roots) > 0: # save groups for a last sentence (if not saved already) or skip
+        if len(roots) > 0:  # save groups for a last sentence (if not saved already) or skip
             for noun in nouns:
                 if short_version:  # shallow or full noun groups
                     groups[noun] = make_short_group(roots, noun)
