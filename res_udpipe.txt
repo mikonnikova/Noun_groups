@@ -35,7 +35,7 @@ Iteration 30: training logprob -1.7076e+05
 
 
 
-Modified
+Modified [old, incorrect]
 
 Macro f1: 0.6037554453958239
 Micro f1: 0.6881203883198352
@@ -62,3 +62,28 @@ Iteration 30: training logprob -2.3854e+05
 Обучение: 121266.72 user 33:41:09 elapsed
 
 
+
+Modified
+
+Macro f1: 0.7834159531320414
+Micro f1: 0.8157603101022672
+
+Анализ: user	0m36.612s
+
+Parser transition options: system=link2, oracle=static, structured_interval=8, single_root=0
+Parser uses lemmas/upos/xpos/feats: from gold data
+Parser embeddings options: upostag=20, feats=20, xpostag=0, form=50, lemma=0, deprel=20
+  form mincount=2, precomputed form embeddings=glove.vectors
+  lemma mincount=2, precomputed lemma embeddings=none
+Parser network options: iterations=30, hidden_layer=200, batch_size=10,
+  learning_rate=0.0100, learning_rate_final=0.0010, l2=0.5000, early_stopping=0
+Initialized 'universal_tag' embedding with 0,17 words and 0.0%,100.0% coverage.
+Initialized 'feats' embedding with 0,571 words and 0.0%,100.0% coverage.
+Initialized 'form' embedding with 400001,408707 words and 89.5%,98.2% coverage.
+Initialized 'deprel' embedding with 0,1 words and 0.0%,100.0% coverage.
+
+Iteration 1: training logprob -5.6336e+05
+...
+Iteration 30: training logprob -2.0643e+05
+
+Обучение: 122221.12 user 33:57:04 elapsed
