@@ -43,7 +43,8 @@ def make_short_group(roots, noun):
         for candidate in candidates:
             for pair in roots:
                 if pair[1] == candidate:
-                    group.append(pair[0])
+                    if pair[2] != 'PUNCT':
+                        group.append(pair[0])
                     if pair[2] != 'NOUN' and pair[2] != 'PROPN':  # don't include embedded groups
                         new_candidates.append(pair[0])
         candidates = new_candidates  # search for dependent words for new members of a group
