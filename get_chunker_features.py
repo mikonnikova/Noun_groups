@@ -32,13 +32,12 @@ pos_len = len(pos_dict) + 1  # length of part-of-speech vector feature
 feats_len = 0  # length of additional part-of-speech features vector feature
 for f in feats_list:
     feats_len += (len(feats_variants[f]) + 1)
-all_len = word_emb_len + pos_len + feats_len + 1  # total length of a features vector for a single word
+all_len = word_emb_len + pos_len + feats_len  # total length of a features vector for a single word
 
 
 # transform word information into a vector representation
 
 def get_features(word, pos, feats, iob_tag):
-
     # get word embedding from a model
     word_vector = np.concatenate(([1], model.get_vector(word)), axis=None) \
         if word in model else np.zeros(word_emb_len)
@@ -64,55 +63,92 @@ def get_features(word, pos, feats, iob_tag):
         feats_vector = np.append(feats_vector, local)
 
     # add IOB2 tag
-    tag = [0]
+    tag = np.zeros(1)
     if iob_tag == 'B':
         tag[0] = 1
     elif iob_tag == 'I':
         tag[0] = 2
 
-    return np.concatenate((word_vector, pos_vector, feats_vector, tag), axis=None)
+    return np.concatenate((word_vector, pos_vector, feats_vector), axis=None), tag
 
 
 # for a given sentence get all words features
 
 def process_sentence(info):
     sentence_features = []
+    tags = []
     info_items = info.split('\t')
 
     for word_count in range(len(info_items) // 4):
-        # get one word features
-        word_features = get_features(info_items[word_count * 4], info_items[word_count * 4 + 1],
-                                     info_items[word_count * 4 + 2], info_items[word_count * 4 + 3])
+        word_features, tag = get_features(info_items[word_count * 4], info_items[word_count * 4 + 1],
+                                          info_items[word_count * 4 + 2], info_items[word_count * 4 + 3])
 
         sentence_features.append(word_features)
+        tags.append(tag)
 
-    return np.array(sentence_features)
+    return np.array(sentence_features), np.array(tags)
+
+
+# pad or cut the sentence to the length of 70
+
+def sentence_vector(words, tags):
+    if len(words) > 70:
+        return words[:70], tags[:70]
+
+    filler = np.zeros((70 - len(words), all_len))
+    sentence = np.concatenate((words, filler), axis=0)
+
+    filler = np.zeros((70 - len(tags), 1))
+    answer = np.concatenate((tags, filler), axis=0)
+
+    return sentence, answer
 
 
 # process corpus in IOB2 format
 # return pickle file with word features for all sentences
 
-def process_corpus(corpus_file, features_file):
-    with open(corpus_file, 'r', encoding='utf-8') as in_f, open(features_file, 'wb') as res_file:
+def process_corpus(corpus_file, features_file, answers_file):
+    with open(corpus_file, 'r', encoding='utf-8') as in_f, open(features_file, 'wb') as res_file, \
+            open(answers_file, 'wb') as ans_file:
         info = ''
+        res = np.zeros((70, all_len))
+        answer = np.zeros((70, 1))
 
+        # process file line by line
         for line in in_f:
-            if len(line) <= 1:  # between sentences
+            if len(line) <= 1:
                 if len(info) > 0:
-                    res = process_sentence(info)
-                    pickle.dump(res, res_file)
+                    words, tags = process_sentence(info)
+                    sent, tags = sentence_vector(words, tags)
+                    res = np.dstack((res, sent))
+                    answer = np.dstack((answer, tags))
                 info = ''
                 continue
 
             parsed_line = line.split(maxsplit=3)
-            if parsed_line[0] == '#':   # text or info line
+            if parsed_line[0] == '#':
                 continue
 
-            info += (line[:-1] + '\t')  # add word line to sentence info
+            info += (line[:-1] + '\t')
 
         if len(info) > 0:
-            res = process_sentence(info)
-            pickle.dump(res, res_file)
+            words, tags = process_sentence(info)
+            sent, tags = sentence_vector(words, tags)
+            res = np.dstack((res, sent))
+            answer = np.dstack((answer, tags))
+
+        # rearrange the axes
+        res = np.moveaxis(res, 1, 2)
+        res = np.moveaxis(res, 0, 1)
+        res = res[1:]
+
+        answer = np.moveaxis(answer, 1, 2)
+        answer = np.moveaxis(answer, 0, 1)
+        answer = answer[1:]
+
+        # save to files
+        pickle.dump(res, res_file)
+        pickle.dump(answer, ans_file)
 
     return
 
@@ -120,4 +156,5 @@ def process_corpus(corpus_file, features_file):
 if __name__ == '__main__':
     corpus_file_name = sys.argv[1]
     features_file_name = sys.argv[2]
-    process_corpus(corpus_file_name, features_file_name)
+    answers_file_name = sys.argv[3]
+    process_corpus(corpus_file_name, features_file_name, answers_file_name)
