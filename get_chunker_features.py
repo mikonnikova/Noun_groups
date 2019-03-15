@@ -1,6 +1,7 @@
 import gensim
 import numpy as np
 import pickle
+import os.path
 import sys
 
 
@@ -27,134 +28,119 @@ feats_variants = {'Foreign': {'Yes': 1},
 # list of possible features
 feats_list = [feat for feat in feats_variants]
 
-word_emb_len = len(model.get_vector(',')) + 1  # length of word embedding vector feature
+word_emb_len = len(model.get_vector(','))  # length of word embedding vector feature
 pos_len = len(pos_dict) + 1  # length of part-of-speech vector feature
 feats_len = 0  # length of additional part-of-speech features vector feature
 for f in feats_list:
     feats_len += (len(feats_variants[f]) + 1)
-all_len = word_emb_len + pos_len + feats_len  # total length of a features vector for a single word
 
 
 # transform word information into a vector representation
 
-def get_features(word, pos, feats, iob_tag):
+def process_sentence(words, pos, feats, iob_tags):
+
     # get word embedding from a model
-    word_vector = np.concatenate(([1], model.get_vector(word)), axis=None) \
-        if word in model else np.zeros(word_emb_len)
+    word_vector = []
+    for i in range(len(words)):
+        if words[i] in model:
+            word_vector.append(model.get_vector(words[i]))
+        else:
+            word_vector.append(np.zeros(word_emb_len))
 
     # add part-of-speech feature one-hot encoding
-    pos_vector = np.zeros(pos_len)
-    if pos in pos_dict:
-        pos_vector[pos_dict[pos]] = 1
-        pos_vector[0] = 1
+    pos_vector = np.zeros((len(pos), pos_len))
+    for i in range(len(pos)):
+        if pos[i] in pos_dict:
+            pos_vector[i, pos_dict[pos[i]]] = 1
+        else:
+            pos_vector[i, 0] = 1
 
-    # add part-of-speech additional features one-hot encodings
-    local_feats_list = [feat.split('=') for feat in feats.split('|')]
-    feats_dict = {}
-    for feat in local_feats_list:
-        if len(feat) > 1:
-            feats_dict[feat[0]] = feat[1]
-    feats_vector = np.zeros(0)
-    for feat in feats_list:
-        local = np.zeros(len(feats_variants[feat]) + 1)
-        if feat in feats_dict:
-            local[0] = 1
-            local[feats_variants[feat][feats_dict[feat]]] = 1
-        feats_vector = np.append(feats_vector, local)
+    # add part-of-speech additional features one-hot encodings (array of arrays)
+    global_feats_vector = []
+
+    for i in range(len(feats)):
+        local_feats_list = [feat.split('=') for feat in feats[i].split('|')]
+        feats_dict = {}
+        for feat in local_feats_list:
+            if len(feat) > 1:
+                feats_dict[feat[0]] = feat[1]
+
+        feats_vector = []
+
+        for feat in feats_list:
+            local = np.zeros(len(feats_variants[feat]) + 1)
+            if feat in feats_dict:
+                local[feats_variants[feat][feats_dict[feat]]] = 1
+            else:
+                local[0] = 1
+            feats_vector.append(local)
+
+        global_feats_vector.append(feats_vector)
 
     # add IOB2 tag
-    tag = np.zeros(1)
-    if iob_tag == 'B':
-        tag[0] = 1
-    elif iob_tag == 'I':
-        tag[0] = 2
+    tag = np.zeros(len(iob_tags))
+    for i in range(len(iob_tags)):
+        if iob_tags[i] == 'B':
+            tag[i] = 1
+        elif iob_tags[i] == 'I':
+            tag[i] = 2
 
-    return np.concatenate((word_vector, pos_vector, feats_vector), axis=None), tag
-
-
-# for a given sentence get all words features
-
-def process_sentence(info):
-    sentence_features = []
-    tags = []
-    info_items = info.split('\t')
-
-    for word_count in range(len(info_items) // 4):
-        word_features, tag = get_features(info_items[word_count * 4], info_items[word_count * 4 + 1],
-                                          info_items[word_count * 4 + 2], info_items[word_count * 4 + 3])
-
-        sentence_features.append(word_features)
-        tags.append(tag)
-
-    return np.array(sentence_features), np.array(tags)
-
-
-# pad or cut the sentence to the length of 70
-
-def sentence_vector(words, tags):
-    if len(words) > 70:
-        return words[:70], tags[:70]
-
-    filler = np.zeros((70 - len(words), all_len))
-    sentence = np.concatenate((words, filler), axis=0)
-
-    filler = np.zeros((70 - len(tags), 1))
-    answer = np.concatenate((tags, filler), axis=0)
-
-    return sentence, answer
+    return word_vector, pos_vector, global_feats_vector, tag
 
 
 # process corpus in IOB2 format
 # return pickle file with word features for all sentences
 
-def process_corpus(corpus_file, features_file, answers_file):
-    with open(corpus_file, 'r', encoding='utf-8') as in_f, open(features_file, 'wb') as res_file, \
-            open(answers_file, 'wb') as ans_file:
-        info = ''
-        res = np.zeros((70, all_len))
-        answer = np.zeros((70, 1))
+def process_corpus(corpus_file, words_file, pos_file, feats_file, answers_file):
 
-        # process file line by line
+    with open(corpus_file, 'r', encoding='utf-8') as in_f:
+
+        words, pos, feats, tags = [], [], [], []  # list for a sentence
+        words_vector, pos_vector, feats_vector, answer = [], [], [], []  # global array
+
         for line in in_f:
-            if len(line) <= 1:
-                if len(info) > 0:
-                    words, tags = process_sentence(info)
-                    sent, tags = sentence_vector(words, tags)
-                    res = np.dstack((res, sent))
-                    answer = np.dstack((answer, tags))
-                info = ''
+            if len(line) <= 1:  # empty line
+                if len(words) > 0:
+                    info1, info2, info3, tags = process_sentence(words, pos, feats, tags)
+                    words_vector.append(info1)
+                    pos_vector.append(info2)
+                    feats_vector.append(info3)
+                    answer.append(tags)
+                words, pos, feats, tags = [], [], [], []
                 continue
 
-            parsed_line = line.split(maxsplit=3)
-            if parsed_line[0] == '#':
+            if line[0] == '#':  # info line
                 continue
 
-            info += (line[:-1] + '\t')
+            parsed_line = line.split('\t')
+            words.append(parsed_line[0])
+            pos.append(parsed_line[1])
+            feats.append(parsed_line[2])
+            tags.append(parsed_line[3][:-1])
 
-        if len(info) > 0:
-            words, tags = process_sentence(info)
-            sent, tags = sentence_vector(words, tags)
-            res = np.dstack((res, sent))
-            answer = np.dstack((answer, tags))
+        if len(words) > 0:
+            info1, info2, info3, tags = process_sentence(words, pos, feats, tags)
+            words_vector.append(info1)
+            pos_vector.append(info2)
+            feats_vector.append(info3)
+            answer.append(tags)
 
-        # rearrange the axes
-        res = np.moveaxis(res, 1, 2)
-        res = np.moveaxis(res, 0, 1)
-        res = res[1:]
-
-        answer = np.moveaxis(answer, 1, 2)
-        answer = np.moveaxis(answer, 0, 1)
-        answer = answer[1:]
-
-        # save to files
-        pickle.dump(res, res_file)
-        pickle.dump(answer, ans_file)
+    with open(words_file, 'wb') as wf:
+        pickle.dump(words_vector, wf)
+    with open(pos_file, 'wb') as pf:
+        pickle.dump(pos_vector, pf)
+    with open(feats_file, 'wb') as ff:
+        pickle.dump(feats_vector, ff)
+    with open(answers_file, 'wb') as af:
+        pickle.dump(answer, af)
 
     return
 
 
 if __name__ == '__main__':
     corpus_file_name = sys.argv[1]
-    features_file_name = sys.argv[2]
-    answers_file_name = sys.argv[3]
-    process_corpus(corpus_file_name, features_file_name, answers_file_name)
+    words_file_name = sys.argv[2]
+    pos_file_name = sys.argv[3]
+    feats_file_name = sys.argv[4]
+    answers_file_name = sys.argv[5]
+    process_corpus(corpus_file_name, words_file_name, pos_file_name, feats_file_name, answers_file_name)
