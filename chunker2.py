@@ -44,7 +44,7 @@ def train_chunker(words_file, pos_file, feats_file, answers_file, model_file):
 
     # neural network input
     words_sequence = Input(shape=(None, word_length), dtype='float32')
-    pos_sequence = Input(shape=(None, pos_length), dtype='float32')
+    pos_sequence = Input(shape=(None, ), dtype='float32')
 
     # pos embedding
     pos_embedding = Embedding(18, 10, input_length=None, mask_zero=True)(pos_sequence)
@@ -63,7 +63,7 @@ def train_chunker(words_file, pos_file, feats_file, answers_file, model_file):
 
     # concatenate the outputs of the 2 LSTMs
     merged2 = merge([forwards, backwards], mode='concat')
-    after_dp = Dropout(0.2)(merged2)
+    after_dp = Dropout(0.5)(merged2)
 
     # output layer (softmax of 3)
     output = TimeDistributed(Dense(3, activation='softmax'))(after_dp)
