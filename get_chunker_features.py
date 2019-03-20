@@ -3,10 +3,8 @@ import numpy as np
 import pickle
 import os.path
 import sys
+from prepare_matrice import prepare_matrices
 
-
-m = 'word2vec.txt'  # file with used word embedding model
-model = gensim.models.KeyedVectors.load_word2vec_format(m, binary=False)  # load word embedding model
 
 # dictionary of part-of-speech tags
 pos_dict = {'ADJ': 1, 'ADV': 2, 'INTJ': 3, 'NOUN': 4, 'PROPN': 5, 'VERB': 6, 'ADP': 7, 'AUX': 8, 'CCONJ': 9, 'DET': 10,
@@ -25,38 +23,19 @@ feats_variants = {'Foreign': {'Yes': 1},
                   'Aspect': {'Imp': 1, 'Perf': 2},
                   'Voice': {'Act': 1, 'Mid': 2, 'Pass': 3}}
 
-# list of possible features
-feats_list = [feat for feat in feats_variants]
-
-word_emb_len = len(model.get_vector(','))  # length of word embedding vector feature
-pos_len = len(pos_dict) + 1  # length of part-of-speech vector feature
-feats_len = 0  # length of additional part-of-speech features vector feature
-for f in feats_list:
-    feats_len += (len(feats_variants[f]) + 1)
-
 
 # transform word information into a vector representation
 
-def process_sentence(words, pos, feats, iob_tags):
+def process_sentence(words, pos, feats, iob_tags, word2idx):
 
     # get word embedding from a model
-    word_vector = []
-    for i in range(len(words)):
-        if words[i] in model:
-            word_vector.append(model.get_vector(words[i]))
-        else:
-            word_vector.append(np.zeros(word_emb_len))
+    word_vector = [word2idx[w] if w in word_dict else 0 for w in words]
 
-    # add part-of-speech feature one-hot encoding
-    pos_vector = np.zeros((len(pos), pos_len))
-    for i in range(len(pos)):
-        if pos[i] in pos_dict:
-            pos_vector[i, pos_dict[pos[i]]] = 1
-        else:
-            pos_vector[i, 0] = 1
+    # get part-of-speech feature
+    pos_vector = [pos_dict[p] if p in pos_dict else 0 for p in pos]
 
-    # add part-of-speech additional features one-hot encodings (array of arrays)
-    global_feats_vector = []
+    # get part-of-speech additional features (array of arrays)
+    global_feats_vector = np.zeros((len(feats), len(feats_list)))
 
     for i in range(len(feats)):
         local_feats_list = [feat.split('=') for feat in feats[i].split('|')]
@@ -65,25 +44,19 @@ def process_sentence(words, pos, feats, iob_tags):
             if len(feat) > 1:
                 feats_dict[feat[0]] = feat[1]
 
-        feats_vector = []
-
-        for feat in feats_list:
-            local = np.zeros(len(feats_variants[feat]) + 1)
-            if feat in feats_dict:
-                local[feats_variants[feat][feats_dict[feat]]] = 1
-            else:
-                local[0] = 1
-            feats_vector.append(local)
-
-        global_feats_vector.append(feats_vector)
+        for j in range(len(feats_list)):
+            if feats_list[j] in feats_dict:
+                global_feats_vector[i][j] = feats_variants[feats_list[j]][feats_dict[feats_list[j]]]
 
     # add IOB2 tag
-    tag = np.zeros(len(iob_tags))
+    tag = np.zeros((len(iob_tags), 3))
     for i in range(len(iob_tags)):
         if iob_tags[i] == 'B':
-            tag[i] = 1
+            tag[i][0] = 1
         elif iob_tags[i] == 'I':
-            tag[i] = 2
+            tag[i][1] = 1
+        elif iob_tags[i] == 'O':
+            tag[i][2] = 1
 
     return word_vector, pos_vector, global_feats_vector, tag
 
@@ -91,7 +64,12 @@ def process_sentence(words, pos, feats, iob_tags):
 # process corpus in IOB2 format
 # return pickle file with word features for all sentences
 
-def process_corpus(corpus_file, words_file, pos_file, feats_file, answers_file):
+def process_corpus(corpus_file, words_file, pos_file, feats_file, answers_file, dict_file):
+
+    if not os.path.exists(dict_file):
+        prepare_matrices(dict_file, 'embedding_matrix.pkl')
+    with open(dict_file, 'rb') as df:
+        word2idx = pickle.load(df)
 
     with open(corpus_file, 'r', encoding='utf-8') as in_f:
 
@@ -101,7 +79,7 @@ def process_corpus(corpus_file, words_file, pos_file, feats_file, answers_file):
         for line in in_f:
             if len(line) <= 1:  # empty line
                 if len(words) > 0:
-                    info1, info2, info3, tags = process_sentence(words, pos, feats, tags)
+                    info1, info2, info3, tags = process_sentence(words, pos, feats, tags, word2idx)
                     words_vector.append(info1)
                     pos_vector.append(info2)
                     feats_vector.append(info3)
@@ -119,7 +97,7 @@ def process_corpus(corpus_file, words_file, pos_file, feats_file, answers_file):
             tags.append(parsed_line[3][:-1])
 
         if len(words) > 0:
-            info1, info2, info3, tags = process_sentence(words, pos, feats, tags)
+            info1, info2, info3, tags = process_sentence(words, pos, feats, tags, word2idx)
             words_vector.append(info1)
             pos_vector.append(info2)
             feats_vector.append(info3)
@@ -138,9 +116,10 @@ def process_corpus(corpus_file, words_file, pos_file, feats_file, answers_file):
 
 
 if __name__ == '__main__':
-    corpus_file_name = sys.argv[1]
-    words_file_name = sys.argv[2]
-    pos_file_name = sys.argv[3]
-    feats_file_name = sys.argv[4]
-    answers_file_name = sys.argv[5]
-    process_corpus(corpus_file_name, words_file_name, pos_file_name, feats_file_name, answers_file_name)
+    corpus_file_name = sys.argv[1]  # name of corpus to process
+    words_file_name = sys.argv[2]  # where to save words features
+    pos_file_name = sys.argv[3]  # where to save pos features
+    feats_file_name = sys.argv[4]  # where to save feats features
+    answers_file_name = sys.argv[5]  # where to save answers
+    dict_file_name = sys.argv[6]  # word:index dict file
+    process_corpus(corpus_file_name, words_file_name, pos_file_name, feats_file_name, answers_file_name, dict_file_name)

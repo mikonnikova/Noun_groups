@@ -4,74 +4,90 @@ import sys
 
 import h5py
 from keras.models import Model
-from keras.layers import Input, LSTM, Dropout, Dense, TimeDistributed, merge
+from keras.layers import Input, LSTM, Dropout, Dense, TimeDistributed, Embedding, concatenate
+from keras.preprocessing.sequence import pad_sequences
+
+from keras_contrib.layers import CRF
+from keras_contrib.losses import crf_loss
+from keras_contrib.metrics import crf_accuracy
 
 
 # train chunker with given features and answers
 # save model to a file
 
-def train_chunker(features_file, answers_file, model_file):
+def train_chunker(words_file, pos_file, answers_file, model_file, embedding_matrix_file):
 
     # get training features
-    with open(features_file, 'rb') as fx:
-        x_train = pickle.load(fx)
-        num_examples, seq_length, input_length = x_train.shape
+    with open(words_file, 'rb') as wf:
+        words_train = pickle.load(wf)
+        num_examples = len(words_train)
 
-    with open(answers_file, 'rb') as fy:
-        y_train = pickle.load(fy)
-        if y_train.shape[0] != num_examples:
+    with open(pos_file, 'rb') as pf:
+        pos_train = pickle.load(pf)
+        if len(pos_train) != num_examples:
             print('Inconsistent number of examples!')
             exit()
 
+    with open(answers_file, 'rb') as af:
+        answers = pickle.load(af)
+        if len(answers) != num_examples:
+            print('Inconsistent number of examples!')
+            exit()
+
+    with open(embedding_matrix_file, 'rb') as ef:
+        embedding_matrix = pickle.load(ef)
+
     # neural network input
-    sequence = Input(shape=(seq_length, input_length), dtype='float32')
+    words_sequence = Input(shape=(None, ), dtype='float32')
+    pos_sequence = Input(shape=(None, ), dtype='float32')
+
+    # pos embedding
+    word_embedding = Embedding(embedding_matrix.shape[0], embedding_matrix.shape[1], weights=[embedding_matrix],
+                               trainable=False)(words_sequence)
+    pos_embedding = Embedding(18, 10)(pos_sequence)
+
+    # internal dropout
+    in_dp_words = Dropout(0.5)(word_embedding)
+    in_dp_pos = Dropout(0.5)(pos_embedding)
+
+    # internal merge
+    merged1 = concatenate([in_dp_words, in_dp_pos])
 
     # forwards LSTM
-    forwards = LSTM(output_dim=50, return_sequences=True)(sequence)
+    forwards = LSTM(units=50, return_sequences=True)(merged1)
     # backwards LSTM
-    backwards = LSTM(output_dim=50, return_sequences=True, go_backwards=True)(sequence)
+    backwards = LSTM(go_backwards=True, units=50, return_sequences=True)(merged1)
 
     # concatenate the outputs of the 2 LSTMs
-    merged = merge([forwards, backwards], mode='concat')
-    after_dp = Dropout(0.2)(merged)
+    merged2 = concatenate([forwards, backwards])
+    after_dp = Dropout(0.5)(merged2)
 
-    # output layer (softmax of 3)
-    output = TimeDistributed(Dense(3, activation='softmax'))(after_dp)
+    # output layer
+    timed = TimeDistributed(Dense(1, activation='relu'))(after_dp)
+    output = CRF(3)(timed)
 
-    model = Model(input=sequence, output=output)
+    model = Model(inputs=[words_sequence, pos_sequence], outputs=output)
     model.summary()
 
-    model.compile(loss='sparse_categorical_crossentropy', optimizer='adam', metrics=['accuracy'],
-                  sample_weight_mode='temporal')
-    model.fit(x_train, y_train, batch_size=128, nb_epoch=50)
+    model.compile(loss=crf_loss, optimizer='adam', metrics=[crf_accuracy])
+
+    batch_size = 256
+    for i in range(num_examples // batch_size):
+        words = pad_sequences(words_train[i*batch_size:(i+1)*batch_size], padding='post')
+        pos = pad_sequences(pos_train[i*batch_size:(i+1)*batch_size], padding='post')
+        answer = pad_sequences(answers[i*batch_size:(i+1)*batch_size], padding='post')
+
+        for _ in range(30):
+            model.train_on_batch([words, pos], answer)
 
     model.save(model_file)
 
 
-# load model from a file
-# get accuracy on a test file
-
-def test_chunker(features_file, answers_file, model_file):
-
-    # load model
-    model = load_model(model_file)
-
-    # get features and correct answers
-    with open(features_file, 'rb') as fx:
-        x_test = pickle.load(fx)
-    with open(answers_file, 'rb') as fy:
-        y_test = pickle.load(fy)
-
-    score, acc = model.evaluate(x_test, y_test)
-    print('Test accuracy:', acc)
-    # Test accuracy: 0.9580782173576496
-
-
 if __name__ == '__main__':
-    features_file_name = sys.argv[2]
+    words_file_name = sys.argv[1]
+    pos_file_name = sys.argv[2]
     answers_file_name = sys.argv[3]
     model_file_name = sys.argv[4]
-    if sys.argv[1] == 'train':
-        train_chunker(features_file_name, answers_file_name, model_file_name)
-    elif sys.argv[1] == 'test':
-        test_chunker(features_file_name, answers_file_name, model_file_name)
+    embedding_matrix_file_name = sys.argv[5]
+
+    train_chunker(words_file_name, pos_file_name, answers_file_name, model_name, embedding_matrix_file_name)
