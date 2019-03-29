@@ -7,7 +7,6 @@ import h5py
 from keras.models import Model
 from keras.layers import Input, LSTM, Dropout, Dense, TimeDistributed, Embedding, concatenate
 from keras.preprocessing.sequence import pad_sequences
-from keras.optimizers import Adam
 
 from keras_contrib.layers import CRF
 from keras_contrib.losses import crf_loss
@@ -17,7 +16,7 @@ from keras_contrib.metrics import crf_accuracy
 # train chunker with given features and answers
 # save model to a file
 
-def train_chunker(words_file, pos_file, answers_file, model_file, embedding_matrix_file):
+def train_chunker(words_file, pos_file, answers_file, model_file, embedding_matrix_file, dense1, pos_emb, drop1, lstm, drop2, dense2, opt, batch):
 
     # get training features
     with open(words_file, 'rb') as wf:
@@ -46,40 +45,41 @@ def train_chunker(words_file, pos_file, answers_file, model_file, embedding_matr
     # pos embedding
     word_embedding = Embedding(embedding_matrix.shape[0], embedding_matrix.shape[1], weights=[embedding_matrix],
                                trainable=False, mask_zero=True)(words_sequence)
-    post_word_embedding = Dense(15, activation='tanh')(word_embedding)
-    pos_embedding = Embedding(18, 15, mask_zero=True)(pos_sequence)
+    post_word_embedding = Dense(dense1, activation='tanh')(word_embedding)
+    pos_embedding = Embedding(18, pos_emb, mask_zero=True)(pos_sequence)
 
     # internal dropout
-    in_dp_words = Dropout(0.3)(post_word_embedding)
-    in_dp_pos = Dropout(0.3)(pos_embedding)
+    in_dp_words = Dropout(drop1)(post_word_embedding)
+    in_dp_pos = Dropout(drop1)(pos_embedding)
 
     # internal merge
     merged1 = concatenate([in_dp_words, in_dp_pos])
 
     # forwards LSTM
-    forwards = LSTM(units=15, return_sequences=True)(merged1)
+    forwards = LSTM(units=lstm, return_sequences=True)(merged1)
     # backwards LSTM
-    backwards = LSTM(go_backwards=True, units=15, return_sequences=True)(merged1)
+    backwards = LSTM(go_backwards=True, units=lstm, return_sequences=True)(merged1)
 
     # concatenate the outputs of the 2 LSTMs
     merged2 = concatenate([forwards, backwards])
-    after_dp = Dropout(0.3)(merged2)
+    after_dp = Dropout(drop2)(merged2)
 
     # output layer
-    timed = TimeDistributed(Dense(10, activation='relu'))(after_dp)
+    timed = TimeDistributed(Dense(dense2, activation='relu'))(after_dp)
     output = CRF(3)(timed)
 
     model = Model(inputs=[words_sequence, pos_sequence], outputs=output)
     model.summary()
 
-    model.compile(loss=crf_loss, optimizer='adam', metrics=[crf_accuracy])
+    model.compile(loss=crf_loss, optimizer=opt, metrics=[crf_accuracy])
 
-    batch_size = 16
+    batch_size = batch
     prev_loss = 1
     rounds_without_improvement = 0
 
-    for _ in range(30):
+    for e in range(50):
         new_loss = 0
+        quality = 0
 
         # padding and training on batch
         for i in range(num_examples // batch_size - 1):
@@ -87,10 +87,11 @@ def train_chunker(words_file, pos_file, answers_file, model_file, embedding_matr
             pos = pad_sequences(pos_train[i * batch_size:(i + 1) * batch_size], padding='post')
             answer = pad_sequences(answers[i * batch_size:(i + 1) * batch_size], padding='post')
 
-            new_loss += model.train_on_batch([words, pos], answer)[0]
+            (l, q) = model.train_on_batch([words, pos], answer)
+            new_loss += l
+            quality += q
 
         i = num_examples // batch_size
-        print(new_loss)
 
         # last batch
         if num_examples % batch_size > 0:
@@ -98,13 +99,20 @@ def train_chunker(words_file, pos_file, answers_file, model_file, embedding_matr
             pos = pad_sequences(pos_train[i * batch_size:], padding='post')
             answer = pad_sequences(answers[i * batch_size:], padding='post')
 
-            new_loss += model.train_on_batch([words, pos], answer)[0]
+            (l, q) = model.train_on_batch([words, pos], answer)
+            new_loss += l
+            quality += q
             new_loss /= (i+1)
+            quality /= (i+1)
 
         else:
             new_loss /= i
+            quality /= i
 
-        print(new_loss)
+        print('Epoch ', e)
+        print('Loss ', new_loss)
+        print('Quality ', quality)
+
         # loss improvement
         if abs(prev_loss - new_loss) <= 1e-3:
             rounds_without_improvement += 1
@@ -123,10 +131,18 @@ def train_chunker(words_file, pos_file, answers_file, model_file, embedding_matr
 
 
 if __name__ == '__main__':
-    words_file_name = sys.argv[1]
-    pos_file_name = sys.argv[2]
-    answers_file_name = sys.argv[3]
-    model_file_name = sys.argv[4]
-    embedding_matrix_file_name = sys.argv[5]
+    words_file_name = './train_word_feats.pkl'
+    pos_file_name = './train_pos_feats.pkl'
+    answers_file_name = './train_answers.pkl'
+    model_file_name = sys.argv[1]
+    embedding_matrix_file_name = './embedding_matrix.pkl'
+    dense1 = int(sys.argv[2])
+    pos_emb = int(sys.argv[3])
+    drop1 = float(sys.argv[4])
+    lstm = int(sys.argv[5])
+    drop2 = float(sys.argv[6])
+    dense2 = int(sys.argv[7])
+    opt = sys.argv[8]
+    batch = int(sys.argv[9])
 
-    train_chunker(words_file_name, pos_file_name, answers_file_name, model_file_name, embedding_matrix_file_name)
+    train_chunker(words_file_name, pos_file_name, answers_file_name, model_file_name, embedding_matrix_file_name, dense1, pos_emb, drop1, lstm, drop2, dense2, opt, batch)
