@@ -24,15 +24,20 @@ def get_chunker_answer(input_file, output_file):
             line_number += 1
             parsed_line = line.split('\t')
             pos = (parsed_line[1] == 'NOUN' or parsed_line[1] == 'PROPN')
+            punct = (parsed_line[1] == 'PUNCT')
 
             if parsed_line[3][:-1] == 'B':   # beginning of a chunk
                 if len(chunk) > 0:
                     sentence[noun] = chunk
-                chunk = [line_number]
+                if not punct:  # delete punctuation
+                    chunk = [line_number]
+                else:
+                    chunk = []
                 if pos:
                     noun = line_number
             elif parsed_line[3][:-1] == 'I':   # middle of a chunk
-                chunk.append(line_number)
+                if not punct:
+                    chunk.append(line_number)
                 if pos:
                     noun = line_number
             else:   # between chunks
@@ -45,6 +50,7 @@ def get_chunker_answer(input_file, output_file):
         answer.append(sentence)
                 
     with open(output_file, 'wb') as of:
-        pickle.dump(answers, of)
+        for e in answer:
+            pickle.dump(e, of)
         
     return

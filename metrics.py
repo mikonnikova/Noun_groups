@@ -37,10 +37,10 @@ def local_metrics(true_positive, found, positive):
         if found == 0:
             precision, recall, f1 = 1, 1, 1
         else:
-            precision, recall, f1 = 0, 0, 0
+            precision, recall, f1 = 0, 1, 0
     else:
         if true_positive == 0:
-            precision, recall, f1 = 0, 0, 0
+            precision, recall, f1 = 1, 0, 0
         else:
             precision = true_positive / found
             recall = true_positive / positive
@@ -108,7 +108,7 @@ def metrics(given_answers_file, answers_file):
     print('Micro recall: ' + str(micro_recall))
     print('Micro f1: ' + str(micro_f1))
 	
-    return
+    return micro_f1, macro_f1
 
 
 if __name__ == '__main__':
