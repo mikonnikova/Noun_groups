@@ -19,7 +19,7 @@ def compare_group(a, b):
 
 def compare(groups, answers):
     correct = 0
-    
+
     for k,v in answers.items():
         if k in groups:
             if compare_group(groups[k], v):
@@ -27,7 +27,7 @@ def compare(groups, answers):
                 
     return correct, len(groups), len(answers)  
 
-	
+
 # compare given list of groups to a correct one
 # return precision, recall and f1 metrics (IR defined) for one sentence
 
@@ -46,12 +46,12 @@ def local_metrics(true_positive, found, positive):
             recall = true_positive / positive
             f1 = 2 * precision * recall / (precision + recall)
     return precision, recall, f1
-	
+
 
 # measure quality of given answers compared to correct ones
 # return precision, recall and f1 metrics (IR defined), micro and macro measured
 
-def metrics(given_answers_file, answers_file):
+def metrics(given_answers_file, answers_file, output_file = None):
     all_true_positive, all_found, all_positive = 0, 0, 0
     total_precision, total_recall, total_f1 = 0, 0, 0
     count = 0
@@ -75,15 +75,15 @@ def metrics(given_answers_file, answers_file):
 
             true_positive, found, positive = compare(line, answer)
             local_precision, local_recall, local_f1 = local_metrics(true_positive, found, positive)
-			
+
             all_true_positive += true_positive
             all_found += found
             all_positive += positive
-			
+
             total_precision += local_precision
             total_recall += local_recall
             total_f1 += local_f1
-			
+
             count += 1
 
     if count == 0:
@@ -96,18 +96,27 @@ def metrics(given_answers_file, answers_file):
         0 if all_true_positive - all_positive > 0 else 1
     macro_f1 = 2*macro_precision*macro_recall / (macro_precision+macro_recall) \
         if macro_precision+macro_recall > 0 else 0
-	
+
     micro_precision = total_precision / count
     micro_recall = total_recall / count
     micro_f1 = total_f1 / count
-	
-    print('Macro precision: ' + str(macro_precision))
-    print('Macro recall: ' + str(macro_recall))
-    print('Macro f1: ' + str(macro_f1))
-    print('Micro precision: ' + str(micro_precision))
-    print('Micro recall: ' + str(micro_recall))
-    print('Micro f1: ' + str(micro_f1))
-	
+
+    if output_file:
+        f = open(output_file, 'a')
+        print('Macro precision: ' + str(macro_precision), file=f)
+        print('Macro recall: ' + str(macro_recall), file=f)
+        print('Macro f1: ' + str(macro_f1), file=f)
+        print('Micro precision: ' + str(micro_precision), file=f)
+        print('Micro recall: ' + str(micro_recall), file=f)
+        print('Micro f1: ' + str(micro_f1), file=f)
+    else:
+        print('Macro precision: ' + str(macro_precision))
+        print('Macro recall: ' + str(macro_recall))
+        print('Macro f1: ' + str(macro_f1))
+        print('Micro precision: ' + str(micro_precision))
+        print('Micro recall: ' + str(micro_recall))
+        print('Micro f1: ' + str(micro_f1))
+
     return micro_f1, macro_f1
 
 

@@ -83,8 +83,12 @@ def train_chunker(words_file, pos_file, answers_file, dev_words_file, dev_pos_fi
 
     batch_size = batch
     prev_quality = 0
-
+    
     for e in range(50):
+
+        with open(model_file[:-2]+'txt', 'a') as info_file:
+            print('Epoch ' + str(e), file=info_file)
+            print(file=info_file)
 
         # padding and training on batch
         for i in range(num_examples // batch_size - 1):
@@ -108,12 +112,9 @@ def train_chunker(words_file, pos_file, answers_file, dev_words_file, dev_pos_fi
         for i in range(len(words_dev)):
             prediction = model.predict([words_dev[i], pos_dev[i]])
             postprocessing_modif(prediction, pos_dev[i], temp_file_name)
-        _, quality = metrics(temp_file_name, answers_file)  # get quality
+        quality, _ = metrics(temp_file_name, dev_answers_file, model_file[:-2]+'txt')  # get quality
         if os.path.exists(temp_file_name):  # delete temporary file
             os.remove(temp_file_name)
-
-        print('Epoch ', e)
-        print('Quality ', quality)
 
         # quality improvement
         if quality >= prev_quality:
@@ -125,6 +126,8 @@ def train_chunker(words_file, pos_file, answers_file, dev_words_file, dev_pos_fi
 
         # shuffle data
         words_train, pos_train, answers = shuffle(words_train, pos_train, answers, random_state=1)
+        with open(model_file[:-2]+'txt', 'a') as info_file:
+            print(file=info_file)
 
     return
 
@@ -153,3 +156,4 @@ if __name__ == '__main__':
     train_chunker(words_file_name, pos_file_name, answers_file_name, dev_words_file_name, dev_pos_file_name,
                   dev_answers_file_name, model_file_name, embedding_matrix_file_name,
                   dense1, pos_emb, drop1, lstm, drop2, dense2, act1, act2, opt, batch)
+
