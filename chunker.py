@@ -83,8 +83,10 @@ def train_chunker(words_file, pos_file, answers_file, dev_words_file, dev_pos_fi
 
     batch_size = batch
     prev_quality = 0
+    rounds_without_improvement = 0
     
     for e in range(50):
+        loss = 0
 
         with open(model_file[:-2]+'txt', 'a') as info_file:
             print('Epoch ' + str(e), file=info_file)
@@ -96,7 +98,7 @@ def train_chunker(words_file, pos_file, answers_file, dev_words_file, dev_pos_fi
             pos = pad_sequences(pos_train[i * batch_size:(i + 1) * batch_size], padding='post')
             answer = pad_sequences(answers[i * batch_size:(i + 1) * batch_size], padding='post')
 
-            model.train_on_batch([words, pos], answer)
+            loss += model.train_on_batch([words, pos], answer)
 
         i = num_examples // batch_size
 
@@ -106,7 +108,14 @@ def train_chunker(words_file, pos_file, answers_file, dev_words_file, dev_pos_fi
             pos = pad_sequences(pos_train[i * batch_size:], padding='post')
             answer = pad_sequences(answers[i * batch_size:], padding='post')
 
-            model.train_on_batch([words, pos], answer)
+            loss += model.train_on_batch([words, pos], answer)
+            loss /= (i + 1)
+        else:
+            loss /= i
+
+        with open(model_file[:-2]+'txt', 'a') as info_file:
+            print('Loss: ' + str(loss), file=info_file)
+            print(file=info_file)
 
         # get quality - metrics local
         for i in range(len(words_dev)):
@@ -117,17 +126,33 @@ def train_chunker(words_file, pos_file, answers_file, dev_words_file, dev_pos_fi
             os.remove(temp_file_name)
 
         # quality improvement
+        if abs(quality - prev_quality) < 0.01:
+            rounds_without_improvement += 1
         if quality >= prev_quality:
             if os.path.exists(model_file):  # delete previous model
                 os.remove(model_file)
             model.save(model_file)  # save new model
-        elif quality < prev_quality:
-            break  # early stopping
+        elif (prev_quality - quality) >= 0.1:
+            break  # model degrading
+
+        # early stopping
+        if rounds_without_improvement >= 5:
+            break
 
         # shuffle data
-        words_train, pos_train, answers = shuffle(words_train, pos_train, answers, random_state=1)
+        words_train, pos_train, answers = shuffle(words_train, pos_train, answers, random_state=19)
         with open(model_file[:-2]+'txt', 'a') as info_file:
             print(file=info_file)
+
+    # check on train set
+    with open(model_file[:-2] + 'txt', 'a') as info_file:
+        print("Train set", file=info_file)
+    for i in range(len(words_train)):
+        prediction = model.predict([words_train[i], pos_train[i]])
+        postprocessing_modif(prediction, pos_dev[i], temp_file_name)
+    quality, _ = metrics(temp_file_name, './train_chunk_answers.pkl', model_file[:-2] + 'txt')  # get quality
+    # if os.path.exists(temp_file_name):  # delete temporary file
+    #    os.remove(temp_file_name)
 
     return
 
@@ -156,4 +181,3 @@ if __name__ == '__main__':
     train_chunker(words_file_name, pos_file_name, answers_file_name, dev_words_file_name, dev_pos_file_name,
                   dev_answers_file_name, model_file_name, embedding_matrix_file_name,
                   dense1, pos_emb, drop1, lstm, drop2, dense2, act1, act2, opt, batch)
-

@@ -1,5 +1,6 @@
 import pickle
 
+
 # postprocessing of chunks
 # one and only one noun
 # beginning with B tag
@@ -49,7 +50,7 @@ def postprocessing(input_file, answer_file):
                 chunk_start = True
             elif tag == 'I':
                 if not chunk_start:  # chunk with no beginning
-                    continue
+                    chunk_start = True
                 if punct:
                     continue
                 if noun_in_chunk != 0 and pos:  # second noun in chunk
@@ -78,12 +79,12 @@ def postprocessing(input_file, answer_file):
             pickle.dump(e, f)    
         
     return
-	
+
 
 # postprocessing modified for model prediction
-	
+
 def postprocessing_modif(prediction, feats, answer_file):
-    
+
     a_file = open(answer_file, 'ab')
     
     noun_in_chunk = 0
@@ -116,10 +117,10 @@ def postprocessing_modif(prediction, feats, answer_file):
                     noun_in_chunk = word_num + 1
                 else:
                     noun_in_chunk = 0                        
-                chunk_start = True
+            chunk_start = True
         elif tag == 'I':
             if not chunk_start:  # chunk with no beginning
-                continue
+                chunk_start = True
             if punct:  # skip punctuation
                 continue
             if noun_in_chunk != 0 and noun:  # second noun in chunk

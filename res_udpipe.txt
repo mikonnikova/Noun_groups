@@ -1,7 +1,7 @@
 Baseline
 
-Macro f1: 0.8394772420009013
-Micro f1: 0.8689173212792094
+Micro f1: 0.8394772420009013
+Macro f1: 0.8689173212792094
 
 Анализ: user	0m50.172s
 
@@ -9,8 +9,8 @@ Micro f1: 0.8689173212792094
 
 No labels
 
-Macro f1: 0.8131290371038006
-Micro f1: 0.8465733880769087
+Micro f1: 0.8131290371038006
+Macro f1: 0.8465733880769087
 
 Анализ: user	0m28.376s
 
@@ -37,8 +37,8 @@ Iteration 30: training logprob -1.7076e+05
 
 Modified [old, incorrect]
 
-Macro f1: 0.6037554453958239
-Micro f1: 0.6881203883198352
+Micro f1: 0.6037554453958239
+Macro f1: 0.6881203883198352
 
 Анализ: user	0m29.528s
 
@@ -65,8 +65,8 @@ Iteration 30: training logprob -2.3854e+05
 
 Modified
 
-Macro f1: 0.7834159531320414
-Micro f1: 0.8157603101022672
+Micro f1: 0.7834159531320414
+Macro f1: 0.8157603101022672
 
 Анализ: user	0m36.612s
 
@@ -87,3 +87,12 @@ Iteration 1: training logprob -5.6336e+05
 Iteration 30: training logprob -2.0643e+05
 
 Обучение: 122221.12 user 33:57:04 elapsed
+
+
+
+With chunks
+
+Micro f1: 0.7292173651795103
+Macro f1: 0.7872943193393716
+
+Анализ: user	0m33.336s

@@ -1,0 +1,23 @@
+Graph parser 
+
+Baseline
+
+Parsing 1 file took 93.9 seconds
+Micro f1: 0.9087276550998948
+Macro f1: 0.9269203055152646
+
+
+
+Modified tree
+
+Parsing 1 file took 541.7 seconds
+Micro f1: 0.6176355715787892
+Macro f1: 0.5656038799930273
+
+
+
+With chunks
+
+Parsing 1 file took 53.4 seconds
+Micro f1: 0.7692353913174103
+Macro f1: 0.8210726386331788

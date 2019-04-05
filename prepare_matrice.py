@@ -1,6 +1,7 @@
 import pickle
 import sys
 import gensim
+import numpy as np
 
 
 # prepare word to index dict and embedding matrix

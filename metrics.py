@@ -20,7 +20,7 @@ def compare_group(a, b):
 def compare(groups, answers):
     correct = 0
 
-    for k,v in answers.items():
+    for k, v in answers.items():
         if k in groups:
             if compare_group(groups[k], v):
                 correct += 1
@@ -90,16 +90,16 @@ def metrics(given_answers_file, answers_file, output_file = None):
         print('No lines in file!\n')
         return 0, 0, 0
 
-    macro_precision = all_true_positive / all_found if all_found > 0 else \
+    micro_precision = all_true_positive / all_found if all_found > 0 else \
         0 if all_true_positive - all_found > 0 else 1
-    macro_recall = all_true_positive / all_positive if all_positive > 0 else \
+    micro_recall = all_true_positive / all_positive if all_positive > 0 else \
         0 if all_true_positive - all_positive > 0 else 1
-    macro_f1 = 2*macro_precision*macro_recall / (macro_precision+macro_recall) \
-        if macro_precision+macro_recall > 0 else 0
+    micro_f1 = 2*micro_precision*micro_recall / (micro_precision+micro_recall) \
+        if micro_precision+micro_recall > 0 else 0
 
-    micro_precision = total_precision / count
-    micro_recall = total_recall / count
-    micro_f1 = total_f1 / count
+    macro_precision = total_precision / count
+    macro_recall = total_recall / count
+    macro_f1 = total_f1 / count
 
     if output_file:
         f = open(output_file, 'a')
