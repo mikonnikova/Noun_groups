@@ -26,7 +26,8 @@ def prepare_sentences(temp_file, temp_file_2):
 # replace root information in original file with noun dependency information from pre-made sentence dict
 
 def modify_corpus(input_file, group_file, output_file):
-    with open(input_file, 'r', encoding='utf-8') as in_f, open(group_file, 'rb') as pf, open(output_file, 'w', encoding='utf-8') as out_f:
+    with open(input_file, 'r', encoding='utf-8') as in_f, open(group_file, 'rb') as pf, \
+            open(output_file, 'w', encoding='utf-8') as out_f:
 
         for line in in_f:
             if len(line) <= 1:  # empty line
@@ -37,16 +38,18 @@ def modify_corpus(input_file, group_file, output_file):
                 print(line[:-1], file=out_f)
                 if parsed_line[1] == 'text':
                     roots = pickle.load(pf)
-                continue
+                    print('1\tDummyroot\tdummyroot\tNOUN\t_\t_\t0\troot\t0:root\t_', file=out_f)
+                    continue
             parsed_line = line.split('\t')
             if parsed_line[0].find('.') > -1:
                 continue  # ellipsis
-            text = parsed_line[0] + '\t' + parsed_line[1] + '\t' + parsed_line[2] + '\t' + parsed_line[3] + '\t' \
+            num = str(int(parsed_line[0]) + 1)
+            text = num + '\t' + parsed_line[1] + '\t' + parsed_line[2] + '\t' + parsed_line[3] + '\t' \
                    + parsed_line[4] + '\t' + parsed_line[5] + '\t'  # first 6 columns unchanged
             if parsed_line[0] in roots.keys():
-                text = text + roots[parsed_line[0]] + '\tdep\t_'
+                text = text + str(int(roots[parsed_line[0]]) + 1) + '\tdep\t_'
             else:
-                text = text + '0\tdep\t_'
+                text = text + '1\tdep\t_'
             text = text + '\t' + parsed_line[9]
             print(text[:-1], file=out_f)
 
