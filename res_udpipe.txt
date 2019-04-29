@@ -3,6 +3,9 @@ Baseline
 Micro f1: 0.8394772420009013
 Macro f1: 0.8689173212792094
 
+LAS F1 Score: 88.49
+UAS Score: 89.77
+
 Анализ: user	0m51.696s
 
 
@@ -64,8 +67,8 @@ Iteration 30: training logprob -2.0643e+05
 
 Modified_new
 
-Micro f1: 0.8211987127916331
-Macro f1: 0.8538567684383594
+Micro f1: 0.7863301787592009
+Macro f1: 0.8165477413148833
 
 Анализ: 0m41.580s
 

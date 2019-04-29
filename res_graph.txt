@@ -6,6 +6,8 @@ Parsing 1 file took 93.9 seconds
 Micro f1: 0.9087276550998948
 Macro f1: 0.9269203055152646
 
+LAS F1 Score: 94.04
+UAS Score: 94.87
 
 
 Modified tree
@@ -14,6 +16,7 @@ Parsing 1 file took 541.7 seconds
 Micro f1: 0.6176355715787892
 Macro f1: 0.5656038799930273
 
+UAS Score: 42.98
 
 
 With chunks
